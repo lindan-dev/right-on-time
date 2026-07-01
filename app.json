@@ -1,25 +1,46 @@
 {
   "expo": {
-    "name": "right-on-time",
+    "name": "Right on Time",
     "slug": "right-on-time",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F7F5"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.lindan.rightontime",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification",
+          "fetch",
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1D9E75",
+          "sounds": []
+        }
+      ]
+    ],
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+      "package": "com.lindan.rightontime"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "extra": {
+      "eas": {
+        "projectId": "1c6ddccd-0e16-400e-b095-0c06aecc9e6d"
+      }
     }
   }
 }
