@@ -126,6 +126,30 @@ async function scheduleNotifications(activities: Activity[]) {
   }
 }
 
+async function savePushToken() {
+  try {
+    const { data: existingToken } = await Notifications.getExpoPushTokenAsync();
+    if (!existingToken) return;
+
+    await fetch(`${SB_URL}/rest/v1/push_tokens`, {
+      method: 'POST',
+      headers: {
+        apikey: SB_KEY,
+        Authorization: `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({
+        person: 'olle',
+        token: existingToken,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+  } catch (e) {
+    console.log('Could not save push token:', e);
+  }
+}
+
 export default function App() {
   const [acts, setActs] = useState<Activity[]>([]);
   const [now, setNow] = useState(curMins());
@@ -133,6 +157,7 @@ export default function App() {
 
   useEffect(() => {
     registerForNotifications();
+    savePushToken();
     loadSchedule();
     const tick = setInterval(() => setNow(curMins()), 30000);
     return () => clearInterval(tick);
