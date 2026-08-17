@@ -212,9 +212,27 @@ function renderOlle(){
     let inner='<div class="olle-day-header"><div class="olle-day-num">'+day.getDate()+'</div><div class="olle-day-name">'+DNF[day.getDay()]+'</div>'+(today?'<div class="olle-today-badge">Idag</div>':'')+'</div>';
     if(olleEvs.length>0){inner+='<div class="olle-events">';olleEvs.forEach(ev=>{
       const isMood=ev.type==='mood';
-      const moodBadge=isMood&&ev.mood_response?'<span style="font-size:22px;margin-left:4px">'+ev.mood_response+'</span>':'';
-      const iconOrEmoji=isMood?'&#128512;':ev.emoji;
-      inner+='<div class="olle-event'+(isMood?' mood-event':'')+'" onclick="say(\''+ev.name+(ev.time?' klockan '+ev.time:'')+'\')"><div class="olle-event-icon">'+iconOrEmoji+'</div><div style="flex:1"><div class="olle-event-name">'+ev.name+moodBadge+'</div>'+(ev.time?'<div class="olle-event-time">kl '+ev.time+'</div>':'')+'</div><div style="display:flex;gap:6px"><div class="olle-speak" onclick="event.stopPropagation();openEditModal('+ev.id+')" title="Redigera">&#9998;</div><div class="olle-speak" onclick="event.stopPropagation();deleteEvent('+ev.id+')" title="Ta bort" style="color:#E24B4A">&#128465;</div></div></div>';
+      const hasResponse=isMood&&ev.mood_response;
+      if(isMood){
+        // Lila mood-kort med svar eller väntande
+        const moodStyle=hasResponse
+          ?'background:#F5F0FF;border:1.5px solid #D4B8FE;'
+          :'background:#FAF5FF;border:1.5px solid #D4B8FE;opacity:0.85;';
+        inner+='<div style="'+moodStyle+'border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;">';
+        inner+='<div style="font-size:24px;">'+(hasResponse?ev.mood_response:'💭')+'</div>';
+        inner+='<div style="flex:1">';
+        inner+='<div style="font-size:15px;font-weight:800;color:#4C1D95;">'+ev.name+'</div>';
+        if(ev.time)inner+='<div style="font-size:12px;font-weight:600;color:#7C3AED;">kl '+ev.time+'</div>';
+        if(hasResponse)inner+='<div style="font-size:11px;font-weight:700;color:#7C3AED;margin-top:2px;">Svarat ✓</div>';
+        inner+='</div>';
+        inner+='<div style="display:flex;gap:6px">';
+        inner+='<div class="olle-speak" style="border-color:#D4B8FE;" onclick="event.stopPropagation();openEditModal('+ev.id+')" title="Redigera">&#9998;</div>';
+        inner+='<div class="olle-speak" onclick="event.stopPropagation();deleteEvent('+ev.id+')" title="Ta bort" style="color:#E24B4A;border-color:#FECDD3;">&#128465;</div>';
+        inner+='</div>';
+        inner+='</div>';
+      } else {
+        inner+='<div class="olle-event" onclick="say(\''+ev.name+(ev.time?' klockan '+ev.time:'')+'\')"><div class="olle-event-icon">'+ev.emoji+'</div><div style="flex:1"><div class="olle-event-name">'+ev.name+'</div>'+(ev.time?'<div class="olle-event-time">kl '+ev.time+'</div>':'')+'</div><div style="display:flex;gap:6px"><div class="olle-speak" onclick="event.stopPropagation();openEditModal('+ev.id+')" title="Redigera">&#9998;</div><div class="olle-speak" onclick="event.stopPropagation();deleteEvent('+ev.id+')" title="Ta bort" style="color:#E24B4A">&#128465;</div></div></div>';
+      }
     });inner+='</div>';}
     else{inner+='<div class="olle-empty">Inget inbokat ännu</div>';}
     if(famEvs.length>0){inner+='<div class="olle-fam-row">';famEvs.slice(0,4).forEach(ev=>{const p=PERSONS.find(x=>x.key===ev.person);inner+='<div class="fam-chip" style="background:'+p.color+'22;color:'+p.color+';border:1px solid '+p.color+'44">'+ev.emoji+' '+(ev.name.length>14?ev.name.slice(0,14)+'…':ev.name)+'</div>';});inner+='</div>';}

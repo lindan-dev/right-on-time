@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, ActivityIndicator
+  StyleSheet, SafeAreaView, ActivityIndicator, Modal
 } from 'react-native';
 import * as Speech from 'expo-speech';
 import * as Notifications from 'expo-notifications';
@@ -22,6 +22,7 @@ const RING_SIZE = 160;
 const RING_R = 65;
 const RING_CIRC = 2 * Math.PI * RING_R;
 const MAX_MINS = 120;
+const MOOD_EMOJIS = ['😀', '🙂', '😠', '😵‍💫', '😴'];
 
 type Activity = {
   id: number;
@@ -29,6 +30,8 @@ type Activity = {
   name: string;
   emoji: string;
   date: string;
+  type?: string;
+  mood_response?: string;
 };
 
 function dateStr(d: Date) {
@@ -96,6 +99,26 @@ async function registerForNotifications() {
   }
 }
 
+async function savePushToken() {
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    if (!tokenData?.data) return;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    await fetch(`${SB_URL}/rest/v1/push_tokens`, {
+      method: 'POST',
+      headers: {
+        apikey: SB_KEY,
+        Authorization: `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({ person: 'olle', token: tokenData.data, timezone, updated_at: new Date().toISOString() }),
+    });
+  } catch (e) {
+    console.log('Could not save push token:', e);
+  }
+}
+
 async function scheduleNotifications(activities: Activity[]) {
   await Notifications.cancelAllScheduledNotificationsAsync();
   const { status } = await Notifications.getPermissionsAsync();
@@ -126,34 +149,11 @@ async function scheduleNotifications(activities: Activity[]) {
   }
 }
 
-async function savePushToken() {
-  try {
-    const { data: existingToken } = await Notifications.getExpoPushTokenAsync();
-    if (!existingToken) return;
-
-    await fetch(`${SB_URL}/rest/v1/push_tokens`, {
-      method: 'POST',
-      headers: {
-        apikey: SB_KEY,
-        Authorization: `Bearer ${SB_KEY}`,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify({
-        person: 'olle',
-        token: existingToken,
-        updated_at: new Date().toISOString(),
-      }),
-    });
-  } catch (e) {
-    console.log('Could not save push token:', e);
-  }
-}
-
 export default function App() {
   const [acts, setActs] = useState<Activity[]>([]);
   const [now, setNow] = useState(curMins());
   const [loading, setLoading] = useState(true);
+  const [moodEventId, setMoodEventId] = useState<number | null>(null);
 
   useEffect(() => {
     registerForNotifications();
@@ -173,7 +173,8 @@ export default function App() {
       );
       const rows = await res.json();
       const loaded: Activity[] = rows.map((r: any) => ({
-        id: r.id, time: r.time || '00:00', name: r.name, emoji: r.emoji || '⭐', date: r.date
+        id: r.id, time: r.time || '00:00', name: r.name, emoji: r.emoji || '⭐',
+        date: r.date, type: r.type || 'normal', mood_response: r.mood_response
       }));
       setActs(loaded);
       setLoading(false);
@@ -184,12 +185,24 @@ export default function App() {
     }
   }
 
+  async function saveMoodResponse(eventId: number, mood: string) {
+    await fetch(`${SB_URL}/rest/v1/events?id=eq.${eventId}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: SB_KEY,
+        Authorization: `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({ mood_response: mood, mood_responded_at: new Date().toISOString() }),
+    });
+  }
+
   function speakNext(activities: Activity[]) {
     const today = todayStr();
     const tomorrow = tomorrowStr();
     const nowM = curMins();
 
-    // Find next upcoming today
     const nextToday = activities.find(a => a.date === today && toMins(a.time) > nowM);
     if (nextToday) {
       const diff = toMins(nextToday.time) - nowM;
@@ -198,7 +211,6 @@ export default function App() {
       speakActivity(nextToday, diff, false, false, next2?.name, next2?.time);
       return;
     }
-    // All done today — speak tomorrow's first
     const nextTomorrow = activities.find(a => a.date === tomorrow);
     if (nextTomorrow) {
       const minsUntilMidnight = (24 * 60) - nowM;
@@ -209,6 +221,15 @@ export default function App() {
     Speech.speak('Inget mer schema idag. Bra jobbat Olle!', { language: 'sv-SE', rate: 0.88 });
   }
 
+  function handleActivityPress(a: Activity, diff: number, isDone: boolean, isNextDay: boolean, next2?: Activity) {
+    if (a.type === 'mood' && !isDone) {
+      setMoodEventId(a.id);
+      Speech.speak('Hur mår du idag? Välj en emoji!', { language: 'sv-SE', rate: 0.88 });
+      return;
+    }
+    speakActivity(a, Math.max(0, diff), isDone, isNextDay, next2?.name, next2?.time);
+  }
+
   const today = todayStr();
   const tomorrow = tomorrowStr();
   const nowM = now;
@@ -216,8 +237,14 @@ export default function App() {
   const todayActs = acts.filter(a => a.date === today);
   const tomorrowActs = acts.filter(a => a.date === tomorrow);
 
-  const doneActs = todayActs.filter(a => toMins(a.time) <= nowM);
-  const upcomingToday = todayActs.filter(a => toMins(a.time) > nowM);
+  const doneActs = todayActs.filter(a => {
+    if (a.type === 'mood') return !!a.mood_response;
+    return toMins(a.time) <= nowM;
+  });
+  const upcomingToday = todayActs.filter(a => {
+    if (a.type === 'mood') return !a.mood_response;
+    return toMins(a.time) > nowM;
+  });
   const nextAct = upcomingToday[0] || tomorrowActs[0] || null;
   const isNextTomorrow = nextAct ? nextAct.date === tomorrow : false;
 
@@ -308,17 +335,21 @@ export default function App() {
 
       {/* Activity list */}
       <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 32 }}>
-        {/* Done today */}
         {doneActs.length > 0 && (
           <>
             <Text style={styles.sectionLabel}>GJORT IDAG</Text>
             {doneActs.map(a => (
               <TouchableOpacity key={a.id} style={[styles.card, styles.cardDone]}
-                onPress={() => speakActivity(a, 0, true, false)}>
+                onPress={() => handleActivityPress(a, 0, true, false)}>
                 <View style={styles.cardEmoji}><Text style={styles.cardEmojiText}>{a.emoji}</Text></View>
                 <View style={styles.cardMeta}>
                   <Text style={styles.cardTime}>kl {a.time}</Text>
-                  <Text style={styles.cardName}>{a.name}</Text>
+                  <Text style={styles.cardName}>
+                    {a.name}
+                  </Text>
+                  {a.type === 'mood' && a.mood_response && (
+                    <Text style={{ fontSize: 24, marginTop: 2 }}>{a.mood_response}</Text>
+                  )}
                 </View>
                 <View style={[styles.cardBadge, { backgroundColor: '#E1F5EE' }]}>
                   <Text style={[styles.cardBadgeText, { color: '#085041' }]}>✓ klar</Text>
@@ -328,7 +359,6 @@ export default function App() {
           </>
         )}
 
-        {/* Upcoming today */}
         {upcomingToday.length > 0 && (
           <>
             <Text style={styles.sectionLabel}>KOMMER IDAG</Text>
@@ -336,11 +366,13 @@ export default function App() {
               const diff = toMins(a.time) - nowM;
               const isNext = i === 0;
               const next2 = upcomingToday[i + 1] || tomorrowActs[0];
+              const isMood = a.type === 'mood';
               return (
-                <TouchableOpacity key={a.id} style={[styles.card, isNext && styles.cardNext]}
-                  onPress={() => speakActivity(a, Math.max(0, diff), false, false, next2?.name, next2?.time)}>
-                  <View style={[styles.cardEmoji, isNext && styles.cardEmojiNext]}>
-                    <Text style={styles.cardEmojiText}>{a.emoji}</Text>
+                <TouchableOpacity key={a.id}
+                  style={[styles.card, isNext && !isMood && styles.cardNext, isMood && styles.cardMood]}
+                  onPress={() => handleActivityPress(a, diff, false, false, next2)}>
+                  <View style={[styles.cardEmoji, isNext && !isMood && styles.cardEmojiNext, isMood && styles.cardEmojiMood]}>
+                    <Text style={styles.cardEmojiText}>{isMood ? '💭' : a.emoji}</Text>
                   </View>
                   <View style={styles.cardMeta}>
                     <Text style={styles.cardTime}>kl {a.time}</Text>
@@ -355,7 +387,6 @@ export default function App() {
           </>
         )}
 
-        {/* Tomorrow */}
         {tomorrowActs.length > 0 && (
           <>
             <View style={styles.dayDivider} />
@@ -386,6 +417,32 @@ export default function App() {
           <Text style={styles.empty}>Inget schema idag.{'\n'}Fråga pappa! 👋</Text>
         )}
       </ScrollView>
+
+      {/* Mood picker modal */}
+      <Modal visible={moodEventId !== null} transparent animationType="slide">
+        <View style={styles.moodOverlay}>
+          <View style={styles.moodModal}>
+            <Text style={styles.moodTitle}>Hur mår du? 💭</Text>
+            <Text style={styles.moodSubtitle}>Tryck på en emoji</Text>
+            <View style={styles.moodRow}>
+              {MOOD_EMOJIS.map(emoji => (
+                <TouchableOpacity key={emoji} style={styles.moodBtn} onPress={async () => {
+                  if (moodEventId === null) return;
+                  await saveMoodResponse(moodEventId, emoji);
+                  Speech.speak('Tack! Du svarade ' + emoji, { language: 'sv-SE', rate: 0.88 });
+                  setMoodEventId(null);
+                  loadSchedule();
+                }}>
+                  <Text style={styles.moodEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.moodCancel} onPress={() => setMoodEventId(null)}>
+              <Text style={styles.moodCancelText}>Inte nu</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -416,9 +473,11 @@ const styles = StyleSheet.create({
   cardDone: { opacity: 0.4 },
   cardNext: { borderColor: '#1D9E75', borderWidth: 2 },
   cardNextTomorrow: { borderColor: '#378ADD', borderWidth: 2, backgroundColor: '#F0F7FD' },
+  cardMood: { borderColor: '#A855F7', borderWidth: 1.5, backgroundColor: '#FAF5FF' },
   cardEmoji: { width: 46, height: 46, borderRadius: 12, backgroundColor: '#F5F7F5', borderWidth: 1.5, borderColor: '#E8EDE9', alignItems: 'center', justifyContent: 'center' },
   cardEmojiNext: { backgroundColor: '#E1F5EE', borderColor: '#9FE1CB' },
   cardEmojiTomorrow: { backgroundColor: '#E6F1FB', borderColor: '#B5D4F4' },
+  cardEmojiMood: { backgroundColor: '#F5F0FF', borderColor: '#D4B8FE' },
   cardEmojiText: { fontSize: 24 },
   cardMeta: { flex: 1 },
   cardTime: { fontSize: 11, fontWeight: '700', color: '#A0AFA3', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
@@ -428,4 +487,13 @@ const styles = StyleSheet.create({
   cardBadgeText: { fontSize: 12, fontWeight: '700', color: '#A0AFA3' },
   cardBadgeTextNext: { color: '#085041' },
   empty: { textAlign: 'center', color: '#A0AFA3', fontSize: 15, fontWeight: '600', marginTop: 40, lineHeight: 24 },
+  moodOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  moodModal: { backgroundColor: '#fff', borderRadius: 24, padding: 28, margin: 16, alignItems: 'center' },
+  moodTitle: { fontSize: 22, fontWeight: '800', color: '#1A2B1E', marginBottom: 6 },
+  moodSubtitle: { fontSize: 14, fontWeight: '600', color: '#6B7F70', marginBottom: 24 },
+  moodRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  moodBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F5F7F5', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#E8EDE9' },
+  moodEmoji: { fontSize: 32 },
+  moodCancel: { padding: 12 },
+  moodCancelText: { fontSize: 15, fontWeight: '600', color: '#A0AFA3' },
 });
