@@ -238,11 +238,11 @@ export default function App() {
   const tomorrowActs = acts.filter(a => a.date === tomorrow);
 
   const doneActs = todayActs.filter(a => {
-    if (a.type === 'mood') return !!a.mood_response;
+    if (a.type === 'mood') return false;
     return toMins(a.time) <= nowM;
   });
   const upcomingToday = todayActs.filter(a => {
-    if (a.type === 'mood') return !a.mood_response;
+    if (a.type === 'mood') return true;
     return toMins(a.time) > nowM;
   });
   const nextAct = upcomingToday[0] || tomorrowActs[0] || null;
@@ -367,6 +367,7 @@ export default function App() {
               const isNext = i === 0;
               const next2 = upcomingToday[i + 1] || tomorrowActs[0];
               const isMood = a.type === 'mood';
+              const hasAnswer = isMood && !!a.mood_response;
               return (
                 <TouchableOpacity key={a.id}
                   style={[styles.card, isNext && !isMood && styles.cardNext, isMood && styles.cardMood]}
@@ -376,10 +377,14 @@ export default function App() {
                   </View>
                   <View style={styles.cardMeta}>
                     <Text style={styles.cardTime}>kl {a.time}</Text>
-                    <Text style={styles.cardName}>{a.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.cardName}>{a.name}</Text>
+                      {hasAnswer && <Text style={{ fontSize: 22 }}>{a.mood_response}</Text>}
+                    </View>
+                    {hasAnswer && <Text style={{ fontSize: 11, fontWeight: '700', color: '#7C3AED', marginTop: 2 }}>Tryck för att ändra</Text>}
                   </View>
-                  <View style={[styles.cardBadge, isNext && styles.cardBadgeNext]}>
-                    <Text style={[styles.cardBadgeText, isNext && styles.cardBadgeTextNext]}>{fmtDiff(diff, false)}</Text>
+                  <View style={[styles.cardBadge, isMood && { backgroundColor: '#F5F0FF' }]}>
+                    <Text style={[styles.cardBadgeText, isMood && { color: '#7C3AED' }]}>{hasAnswer ? '✓ svarad' : fmtDiff(diff, false)}</Text>
                   </View>
                 </TouchableOpacity>
               );
