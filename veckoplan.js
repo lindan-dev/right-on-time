@@ -210,7 +210,12 @@ function renderOlle(){
     const famEvs=events.filter(e=>e.date===ds&&e.person!=='olle');
     const card=document.createElement('div');card.className='olle-day-card'+(today?' today':'');
     let inner='<div class="olle-day-header"><div class="olle-day-num">'+day.getDate()+'</div><div class="olle-day-name">'+DNF[day.getDay()]+'</div>'+(today?'<div class="olle-today-badge">Idag</div>':'')+'</div>';
-    if(olleEvs.length>0){inner+='<div class="olle-events">';olleEvs.forEach(ev=>{inner+='<div class="olle-event" onclick="say(\''+ev.name+(ev.time?' klockan '+ev.time:'')+'\')"><div class="olle-event-icon">'+ev.emoji+'</div><div style="flex:1"><div class="olle-event-name">'+ev.name+'</div>'+(ev.time?'<div class="olle-event-time">kl '+ev.time+'</div>':'')+'</div><div style="display:flex;gap:6px"><div class="olle-speak" onclick="event.stopPropagation();openEditModal('+ev.id+')" title="Redigera">&#9998;</div><div class="olle-speak" onclick="event.stopPropagation();deleteEvent('+ev.id+')" title="Ta bort" style="color:#E24B4A">&#128465;</div></div></div>';});inner+='</div>';}
+    if(olleEvs.length>0){inner+='<div class="olle-events">';olleEvs.forEach(ev=>{
+      const isMood=ev.type==='mood';
+      const moodBadge=isMood&&ev.mood_response?'<span style="font-size:22px;margin-left:4px">'+ev.mood_response+'</span>':'';
+      const iconOrEmoji=isMood?'&#128512;':ev.emoji;
+      inner+='<div class="olle-event'+(isMood?' mood-event':'')+'" onclick="say(\''+ev.name+(ev.time?' klockan '+ev.time:'')+'\')"><div class="olle-event-icon">'+iconOrEmoji+'</div><div style="flex:1"><div class="olle-event-name">'+ev.name+moodBadge+'</div>'+(ev.time?'<div class="olle-event-time">kl '+ev.time+'</div>':'')+'</div><div style="display:flex;gap:6px"><div class="olle-speak" onclick="event.stopPropagation();openEditModal('+ev.id+')" title="Redigera">&#9998;</div><div class="olle-speak" onclick="event.stopPropagation();deleteEvent('+ev.id+')" title="Ta bort" style="color:#E24B4A">&#128465;</div></div></div>';
+    });inner+='</div>';}
     else{inner+='<div class="olle-empty">Inget inbokat ännu</div>';}
     if(famEvs.length>0){inner+='<div class="olle-fam-row">';famEvs.slice(0,4).forEach(ev=>{const p=PERSONS.find(x=>x.key===ev.person);inner+='<div class="fam-chip" style="background:'+p.color+'22;color:'+p.color+';border:1px solid '+p.color+'44">'+ev.emoji+' '+(ev.name.length>14?ev.name.slice(0,14)+'…':ev.name)+'</div>';});inner+='</div>';}
     card.innerHTML=inner;wrap.appendChild(card);
@@ -229,13 +234,27 @@ async function deleteEvent(id){
 let selDays = new Set();
 let editId = null; // null = ny händelse, number = redigera befintlig
 
+var selEventType='normal';
+
+function setEventType(type){
+  selEventType=type;
+  document.getElementById('type-normal').classList.toggle('sel',type==='normal');
+  document.getElementById('type-mood').classList.toggle('sel',type==='mood');
+  document.getElementById('normal-fields').style.display=type==='normal'?'block':'none';
+  document.getElementById('mood-fields').style.display=type==='mood'?'block':'none';
+  if(type==='mood'){
+    document.getElementById('ev-name').value='Hur mar du idag?';
+  }
+}
+
 function openAddModal(ds, person) {
   editId = null;
   const editDay = ds || dateStr(currentWeekStart);
   selPersons = new Set([person || 'olle']);
   selDays = new Set([editDay]);
   selSym = '&#11088;';
-  document.getElementById('modal-title').textContent = 'Ny händelse';
+  setEventType('normal');
+  document.getElementById('modal-title').textContent = 'Ny handelse';
   document.getElementById('sym-grid').innerHTML = SYMS.map(s =>
     '<div class="sp' + (s === selSym ? ' sel' : '') + '" onclick="pickSym(\'' + s + '\',this)">' + s + '</div>'
   ).join('');
@@ -253,7 +272,9 @@ function openEditModal(id) {
   selPersons = new Set([ev.person]);
   selDays = new Set([ev.date]);
   selSym = ev.emoji || '&#11088;';
-  document.getElementById('modal-title').textContent = 'Redigera händelse';
+  const evType = ev.type || 'normal';
+  setEventType(evType);
+  document.getElementById('modal-title').textContent = 'Redigera handelse';
   document.getElementById('sym-grid').innerHTML = SYMS.map(s =>
     '<div class="sp' + (s === selSym ? ' sel' : '') + '" onclick="pickSym(\'' + s + '\',this)">' + s + '</div>'
   ).join('');
@@ -301,24 +322,26 @@ function closeModal(){document.getElementById('modal-bg').classList.remove('open
 function pickSym(s,el){selSym=s;document.querySelectorAll('.sp').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
 
 async function saveEvent(){
-  const name=document.getElementById('ev-name').value.trim();
+  const nameRaw=document.getElementById('ev-name').value.trim();
+  const name=nameRaw||(selEventType==='mood'?'Hur mar du idag?':'');
   if(!name){showToast('Skriv ett namn!');return;}
   if(selPersons.size===0){showToast('Valj minst en person!');return;}
   if(selDays.size===0){showToast('Valj minst en dag!');return;}
   const time=document.getElementById('ev-time').value;
   const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const emoji=selEventType==='mood'?'&#128512;':selSym;
 
   // Redigera befintlig
   if(editId!==null){
     try{
       const ds=Array.from(selDays)[0];
       const person=Array.from(selPersons)[0];
-      const saved=await sbFetch('events?id=eq.'+editId,{
+      await sbFetch('events?id=eq.'+editId,{
         method:'PATCH',
-        body:JSON.stringify({date:ds,person:person,name:name,emoji:selSym,time:time||'',timezone:tz})
+        body:JSON.stringify({date:ds,person:person,name:name,emoji:emoji,time:time||'',timezone:tz,type:selEventType})
       });
       const idx=events.findIndex(e=>e.id===editId);
-      if(idx>=0)events[idx]={...events[idx],date:ds,person:person,name:name,emoji:selSym,time:time||''};
+      if(idx>=0)events[idx]={...events[idx],date:ds,person:person,name:name,emoji:emoji,time:time||'',type:selEventType};
       events=sortEvs(events);
       closeModal();render();showToast('Uppdaterat!');
     }catch(e){showToast('Kunde inte uppdatera');}
@@ -329,7 +352,7 @@ async function saveEvent(){
   try{
     for(const ds of selDays){
       for(const person of selPersons){
-        const saved=await sbFetch('events',{method:'POST',body:JSON.stringify({date:ds,person:person,name:name,emoji:selSym,time:time||'',timezone:tz})});
+        const saved=await sbFetch('events',{method:'POST',body:JSON.stringify({date:ds,person:person,name:name,emoji:emoji,time:time||'',timezone:tz,type:selEventType})});
         if(saved&&saved[0])events.push(saved[0]);
       }
     }
@@ -398,3 +421,4 @@ window.openEditModal=openEditModal;
 window.toggleDay=toggleDay;window.handleGcalBtn=handleGcalBtn;window.toggleGcalRow=toggleGcalRow;
 window.toggleGcalPerson=toggleGcalPerson;window.importGcalEvents=importGcalEvents;
 window.copyPrevWeek=copyPrevWeek;
+window.setEventType=setEventType;
