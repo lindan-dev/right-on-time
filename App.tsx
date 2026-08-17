@@ -163,7 +163,12 @@ export default function App() {
     return () => clearInterval(tick);
   }, []);
 
-  async function loadSchedule() {
+  function decodeEmoji(str: string): string {
+  if (!str) return str;
+  return str.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(parseInt(code)));
+}
+
+async function loadSchedule() {
     try {
       const today = todayStr();
       const tomorrow = tomorrowStr();
@@ -173,8 +178,8 @@ export default function App() {
       );
       const rows = await res.json();
       const loaded: Activity[] = rows.map((r: any) => ({
-        id: r.id, time: r.time || '00:00', name: r.name, emoji: r.emoji || '⭐',
-        date: r.date, type: r.type || 'normal', mood_response: r.mood_response
+        id: r.id, time: r.time || '00:00', name: r.name, emoji: decodeEmoji(r.emoji || '⭐'),
+        date: r.date, type: r.type || 'normal', mood_response: r.mood_response ? decodeEmoji(r.mood_response) : undefined
       }));
       setActs(loaded);
       setLoading(false);
@@ -313,7 +318,7 @@ export default function App() {
               />
             </Svg>
             <View style={styles.ringCenter}>
-              <Text style={styles.ringEmoji}>{nextAct.emoji}</Text>
+              <Text style={styles.ringEmoji}>{nextAct.type === 'mood' ? '🌟' : nextAct.emoji}</Text>
               <Text style={[styles.ringNumber, { color: ringColor }]}>
                 {nextDiff >= 60
                   ? `${Math.floor(nextDiff/60)}:${String(nextDiff%60).padStart(2,'0')}`
@@ -373,7 +378,7 @@ export default function App() {
                   style={[styles.card, isNext && !isMood && styles.cardNext, isMood && styles.cardMood]}
                   onPress={() => handleActivityPress(a, diff, false, false, next2)}>
                   <View style={[styles.cardEmoji, isNext && !isMood && styles.cardEmojiNext, isMood && styles.cardEmojiMood]}>
-                    <Text style={styles.cardEmojiText}>{isMood ? '💭' : a.emoji}</Text>
+                    <Text style={styles.cardEmojiText}>{isMood ? '🌟' : a.emoji}</Text>
                   </View>
                   <View style={styles.cardMeta}>
                     <Text style={styles.cardTime}>kl {a.time}</Text>
@@ -427,7 +432,7 @@ export default function App() {
       <Modal visible={moodEventId !== null} transparent animationType="slide">
         <View style={styles.moodOverlay}>
           <View style={styles.moodModal}>
-            <Text style={styles.moodTitle}>Hur mår du? 💭</Text>
+            <Text style={styles.moodTitle}>Hur mår du?</Text>
             <Text style={styles.moodSubtitle}>Tryck på en emoji</Text>
             <View style={styles.moodRow}>
               {MOOD_EMOJIS.map(emoji => (

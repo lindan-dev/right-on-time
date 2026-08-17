@@ -138,7 +138,7 @@ input:focus,select:focus{border-color:var(--green)}
     <div class="icon-btn gcal" id="gcal-btn" onclick="handleGcalBtn()" style="display:none">📅</div>
     <div class="icon-btn" id="sync-btn" onclick="loadWeek()" title="Uppdatera">🔄</div>
     <div class="icon-btn" onclick="window.copyPrevWeek&&window.copyPrevWeek()" title="Kopiera forra veckan">📋</div>
-    <div class="icon-btn" onclick="openAddModal(null,null)" title="Lagg till">➕</div>
+    <div class="icon-btn" onclick="openAddModal(null,null)" title="Lägg till">➕</div>
     <div class="icon-btn green" onclick="window.location.href='index.html'" style="display:none">🏠</div>
   </div>
 </div>
@@ -171,20 +171,20 @@ input:focus,select:focus{border-color:var(--green)}
     <div class="field-label">Typ</div>
     <div class="type-grid" id="type-grid">
       <button class="type-btn sel" id="type-normal" onclick="setEventType('normal')">&#128197; Aktivitet</button>
-      <button class="type-btn" id="type-mood" onclick="setEventType('mood')">&#128512; Hur mar du?</button>
+      <button class="type-btn" id="type-mood" onclick="setEventType('mood')">&#128512; Hur mår du?</button>
     </div>
     <div id="normal-fields">
       <div class="field-label">Symbol</div><div class="sym-grid" id="sym-grid"></div>
-      <div class="field-label">Namn</div><input id="ev-name" type="text" placeholder="T.ex. Lakaren">
+      <div class="field-label">Namn</div><input id="ev-name" type="text" placeholder="T.ex. Läkaren">
     </div>
     <div id="mood-fields" style="display:none">
       <div style="padding:12px;background:var(--col-olle);border-radius:var(--radius-sm);text-align:center;font-size:14px;font-weight:700;color:var(--green-dark)">
-        Olle far valja bland: &#128512; &#128578; &#128544; &#129327; &#128564;
+        Olle får välja bland: &#128512; &#128578; &#128544; &#129327; &#128564;
       </div>
-      <div class="field-label">Namn (valfri)</div><input id="ev-name" type="text" placeholder="Hur mar du idag?">
+      <div class="field-label">Namn (valfri)</div><input id="ev-name" type="text" placeholder="Hur mår du idag?">
     </div>
     <div class="field-label">Tid (valfri)</div><input id="ev-time" type="time" step="300">
-    <div class="field-label">Dag (valj en eller flera)</div><div class="day-grid" id="day-grid"></div>
+    <div class="field-label">Dag (välj en eller flera)</div><div class="day-grid" id="day-grid"></div>
     <div class="person-grid" id="person-grid" style="display:none"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Avbryt</button>

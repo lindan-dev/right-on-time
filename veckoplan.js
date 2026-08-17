@@ -261,7 +261,7 @@ function setEventType(type){
   document.getElementById('normal-fields').style.display=type==='normal'?'block':'none';
   document.getElementById('mood-fields').style.display=type==='mood'?'block':'none';
   if(type==='mood'){
-    document.getElementById('ev-name').value='Hur mar du idag?';
+    document.getElementById('ev-name').value='Hur mår du idag?';
   }
 }
 
@@ -272,7 +272,7 @@ function openAddModal(ds, person) {
   selDays = new Set([editDay]);
   selSym = '&#11088;';
   setEventType('normal');
-  document.getElementById('modal-title').textContent = 'Ny handelse';
+  document.getElementById('modal-title').textContent = 'Ny händelse';
   document.getElementById('sym-grid').innerHTML = SYMS.map(s =>
     '<div class="sp' + (s === selSym ? ' sel' : '') + '" onclick="pickSym(\'' + s + '\',this)">' + s + '</div>'
   ).join('');
@@ -292,7 +292,7 @@ function openEditModal(id) {
   selSym = ev.emoji || '&#11088;';
   const evType = ev.type || 'normal';
   setEventType(evType);
-  document.getElementById('modal-title').textContent = 'Redigera handelse';
+  document.getElementById('modal-title').textContent = 'Redigera händelse';
   document.getElementById('sym-grid').innerHTML = SYMS.map(s =>
     '<div class="sp' + (s === selSym ? ' sel' : '') + '" onclick="pickSym(\'' + s + '\',this)">' + s + '</div>'
   ).join('');
@@ -341,10 +341,10 @@ function pickSym(s,el){selSym=s;document.querySelectorAll('.sp').forEach(b=>b.cl
 
 async function saveEvent(){
   const nameRaw=document.getElementById('ev-name').value.trim();
-  const name=nameRaw||(selEventType==='mood'?'Hur mar du idag?':'');
+  const name=nameRaw||(selEventType==='mood'?'Hur mår du idag?':'');
   if(!name){showToast('Skriv ett namn!');return;}
-  if(selPersons.size===0){showToast('Valj minst en person!');return;}
-  if(selDays.size===0){showToast('Valj minst en dag!');return;}
+  if(selPersons.size===0){showToast('Välj minst en person!');return;}
+  if(selDays.size===0){showToast('Välj minst en dag!');return;}
   const time=document.getElementById('ev-time').value;
   const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
   const emoji=selEventType==='mood'?'&#128512;':selSym;
