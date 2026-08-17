@@ -132,10 +132,10 @@ input:focus,select:focus{border-color:var(--green)}
 <div class="topbar">
   <div><div class="topbar-title">Veckoplanen 📅</div><div class="topbar-week" id="week-label">v.23</div></div>
   <div class="topbar-right">
-    <div class="icon-btn gcal" id="gcal-btn" onclick="handleGcalBtn()" title="Hämta från Google Kalender">📅</div>
+    <div class="icon-btn gcal" id="gcal-btn" onclick="handleGcalBtn()" style="display:none">📅</div>
     <div class="icon-btn" id="sync-btn" onclick="loadWeek()" title="Uppdatera">🔄</div>
     <div class="icon-btn" onclick="openAddModal(null,null)" title="Lägg till">➕</div>
-    <div class="icon-btn green" onclick="window.location.href='index.html'" title="Olles dag">🏠</div>
+    <div class="icon-btn green" onclick="window.location.href='index.html'" style="display:none">🏠</div>
   </div>
 </div>
 <div class="view-toggle">
