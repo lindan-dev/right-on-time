@@ -345,6 +345,48 @@ function say(txt){if(!synth)return;synth.cancel();const u=new SpeechSynthesisUtt
 let toastTimer;
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2500);}
 
+async function copyPrevWeek(){
+  const prevStart=addDays(currentWeekStart,-7);
+  const prevEnd=addDays(currentWeekStart,-1);
+  const thisFrom=dateStr(currentWeekStart);
+  const thisTo=dateStr(addDays(currentWeekStart,6));
+
+  try{
+    // Hämta förra veckans aktiviteter
+    const prevRows=await sbFetch('events?date=gte.'+dateStr(prevStart)+'&date=lte.'+dateStr(prevEnd)+'&person=eq.olle&order=date.asc,time.asc');
+    if(prevRows.length===0){showToast('Inga aktiviteter förra veckan');return;}
+
+    // Kolla vad som redan finns denna vecka
+    const thisRows=await sbFetch('events?date=gte.'+thisFrom+'&date=lte.'+thisTo+'&person=eq.olle');
+    const existingKeys=new Set(thisRows.map(e=>e.date.slice(5)+e.time+e.name));
+
+    const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let copied=0;
+
+    for(const ev of prevRows){
+      // Beräkna motsvarande dag denna vecka (flytta 7 dagar fram)
+      const newDate=dateStr(addDays(new Date(ev.date+'T12:00:00'),7));
+      const key=newDate.slice(5)+(ev.time||'')+ev.name;
+      if(existingKeys.has(key))continue; // Hoppa över dubletter
+
+      const saved=await sbFetch('events',{method:'POST',body:JSON.stringify({
+        date:newDate,
+        person:'olle',
+        name:ev.name,
+        emoji:ev.emoji,
+        time:ev.time||'',
+        timezone:tz
+      })});
+      if(saved&&saved[0])events.push(saved[0]);
+      copied++;
+    }
+
+    events=sortEvs(events);
+    render();
+    showToast(copied===0?'Allt finns redan!':copied+' aktiviteter kopierade!');
+  }catch(e){showToast('Kunde inte kopiera');}
+}
+
 loadWeek();
 checkGcalToken();
 
@@ -355,3 +397,4 @@ window.saveEvent=saveEvent;window.deleteEvent=deleteEvent;window.say=say;
 window.openEditModal=openEditModal;
 window.toggleDay=toggleDay;window.handleGcalBtn=handleGcalBtn;window.toggleGcalRow=toggleGcalRow;
 window.toggleGcalPerson=toggleGcalPerson;window.importGcalEvents=importGcalEvents;
+window.copyPrevWeek=copyPrevWeek;
