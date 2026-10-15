@@ -20,7 +20,7 @@ const PERSONS=[
   {key:'pappa',label:'Pappa & Lina',emoji:'❤️',chipCls:'chip-pappa',color:'#A855F7'},
   {key:'ovrigt',label:'Övrigt',emoji:'📌',chipCls:'chip-ovrigt',color:'#EAB308'},
 ];
-const SYMS=['⭐','🏫','🏠','🚶','🛁','⏰','🎉','⚽','🎓','🍕','🍳','🎬','🛒','💊','🎵','🏥','☕','🤝','🚌','🏋️','📚','✈️','🎂','💼','🏕️','🚗'];
+const SYMS=['⭐','🏫','🏠','🚶','🛁','⏰','🎉','⚽','🎓','🍕','🍳','🎬','🛒','💊','🎵','🏥','☕','🤝','🚌','🏋️','📚','✈️','🎂','💼','🏕️','🚗','✂️'];
 const sortEvs=arr=>arr.slice().sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
 
 let events=[],currentWeekStart=getWeekStart(new Date()),currentView='olle';
